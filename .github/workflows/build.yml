@@ -1,5 +1,33 @@
-on: [push, pull_request, workflow_dispatch]
+name: Build ZMK firmware
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
 
 jobs:
   build:
-    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
+    runs-on: ubuntu-latest
+    container:
+      image: zmkfirmware/zmk-build-arm:2.6
+    strategy:
+      matrix:
+        shield: [totem_prospector_left, totem_prospector_right, prospector_dongle]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Initialize west
+        run: |
+          west init -l config
+          west update
+
+      - name: Build firmware
+        run: |
+          west build -s zmk/app -b nrf52840_dongle -- -DSHIELD=${{ matrix.shield }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.shield }}
+          path: build/zephyr/zmk.uf2
